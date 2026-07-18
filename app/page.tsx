@@ -1,7 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-
+// 👇 AJOUTE CE BLOC POUR RASSURER TYPESCRIPT 👇
+declare global {
+  interface Window {
+    ethereum?: any;
+  }
+}
+// 👆 FIN DU BLOC 👆
 // ⚠️ À MODIFIER : Remplace par l'adresse de ton portefeuille qui recevra les paiements
 const TREASURY_ADDRESS = "0x18799902c24dEe7F499205f9e647C69e97EB193B"; 
 
