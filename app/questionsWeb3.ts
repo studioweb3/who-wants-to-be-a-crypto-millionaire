@@ -1,14 +1,21 @@
-export const questionsWeb3 = [
+// Questions pour le réseau BASE
+export const questionsBase = [
   {
-    question: "Que signifie le sigle 'DeFi' dans l'écosystème Web3 ?",
-    options: ["Decentralized Finance", "Definitive Fiat", "Digital Exchange Format", "Decrypted File"],
-    answer: "Decentralized Finance",
-    explanation: "La DeFi (Finance Décentralisée) permet de créer des services financiers sans intermédiaire grâce aux smart contracts."
+    question: "Sur quel écosystème principal la blockchain Base est-elle construite ?",
+    options: ["Optimism (OP Stack)", "Arbitrum", "Polygon", "Solana"],
+    answer: "Optimism (OP Stack)",
+    explanation: "Base a été développée par Coinbase en utilisant l'OP Stack d'Optimism."
   },
+  // ... Ajoute tes autres questions Base ici ...
+];
+
+// Questions pour le réseau ARC TESTNET
+export const questionsArc = [
   {
-    question: "Quel est le nom de l'unité la plus petite de l'Ethereum ?",
-    options: ["Gwei", "Satoshi", "Wei", "Szabo"],
-    answer: "Wei",
-    explanation: "Le Wei est la plus petite unité d'Ether. 1 ETH équivaut à 10^18 Wei."
-  }
+    question: "Quel est le token utilisé pour payer l'entrée sur cette version d'Arc Testnet ?",
+    options: ["USDC", "ETH", "ARC", "BTC"],
+    answer: "USDC",
+    explanation: "Sur cette édition spéciale, l'entrée se paie en stablecoin USDC."
+  },
+  // ... Ajoute tes autres questions Arc ici ...
 ];
