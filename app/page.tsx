@@ -9,7 +9,7 @@ declare global {
   }
 }
 
-// ⚠️ À MODIFIER : Ton adresse de réception
+// ⚠️ Ton adresse de réception
 const TREASURY_ADDRESS = "0x18799902c24dEe7F499205f9e647C69e97EB193B"; 
 // Prix du ticket : 0.00001 ETH
 const TICKET_PRICE_HEX = "0x9184E72A000"; 
@@ -20,21 +20,28 @@ const MONEY_TREE = [
   "150 000 USDT", "300 000 USDT", "1 000 000 USDT"
 ];
 
+// NOUVEAU : Le type pour notre affichage esthétique
+type ModalState = {
+  title: string;
+  content: string;
+  type: 'joker' | 'gameover';
+} | null;
+
 export default function Home() {
   const [gameState, setGameState] = useState<'welcome' | 'playing'>('welcome');
   const [networkTheme, setNetworkTheme] = useState('Web3');
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
 
-  // États du jeu
   const [currentLevel, setCurrentLevel] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
   const [hiddenOptions, setHiddenOptions] = useState<string[]>([]);
-  const [jokerMessage, setJokerMessage] = useState<string | null>(null);
   const [jokers, setJokers] = useState({ fiftyFifty: true, phone: true, audience: true });
   
-  // Audio
+  // NOUVEAU : Remplace jokerMessage et alert()
+  const [activeModal, setActiveModal] = useState<ModalState>(null);
+  
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
   const bgAudio = useRef<HTMLAudioElement | null>(null);
 
@@ -111,7 +118,6 @@ export default function Home() {
     }
   };
 
-  // Payer puis lancer la partie
   const payTicketAndStart = async () => {
     if (!walletAddress) return;
     try {
@@ -120,7 +126,6 @@ export default function Home() {
         params: [{ from: walletAddress, to: TREASURY_ADDRESS, value: TICKET_PRICE_HEX }],
       });
       
-      // Paiement validé : On lance le plateau
       setCurrentLevel(0);
       setJokers({ fiftyFifty: true, phone: true, audience: true });
       setHiddenOptions([]);
@@ -156,12 +161,12 @@ export default function Home() {
       } else {
         playSound('lose');
         setTimeout(() => {
-          alert("Fin de la partie ! Vous repartez avec " + getSafeHavenValue());
-          setGameState('welcome');
-          if (bgAudio.current) {
-            bgAudio.current.pause();
-            setIsPlayingMusic(false);
-          }
+          // NOUVEAU : Fini l'alert() moche du navigateur, on utilise la belle modale !
+          setActiveModal({
+            title: "🚨 MAUVAISE RÉPONSE",
+            content: `C'est terminé !\n\nVous repartez avec le palier de sécurité de :\n\n${getSafeHavenValue()}`,
+            type: 'gameover'
+          });
         }, 3000);
       }
     }, 3000);
@@ -172,7 +177,7 @@ export default function Home() {
     setCorrectAnswer(null);
     setIsChecking(false);
     setHiddenOptions([]); 
-    setJokerMessage(null);
+    setActiveModal(null);
   };
 
   const getSafeHavenValue = () => {
@@ -181,7 +186,6 @@ export default function Home() {
     return "0 USDT";
   };
 
-  // Jokers
   const useFiftyFifty = () => {
     if (!jokers.fiftyFifty || isChecking) return;
     setJokers({ ...jokers, fiftyFifty: false });
@@ -197,7 +201,12 @@ export default function Home() {
     setJokers({ ...jokers, phone: false });
     playSound('joker');
     const currentQ = questionsWeb3[currentLevel];
-    setJokerMessage(`📞 APPEL À UN AMI :\n\n"Salut ! Écoute, je ne suis pas sûr à 100%, mais je dirais bien que c'est la réponse : ${currentQ.answer}."`);
+    // NOUVEAU : Affichage esthétique de l'appel
+    setActiveModal({
+      title: "📞 APPEL À UN AMI",
+      content: `"Salut ! Écoute, je ne suis pas sûr à 100%, mais je dirais bien que la bonne réponse est :\n\n ${currentQ.answer}"`,
+      type: 'joker'
+    });
   };
 
   const useAudience = () => {
@@ -205,7 +214,12 @@ export default function Home() {
     setJokers({ ...jokers, audience: false });
     playSound('joker');
     const currentQ = questionsWeb3[currentLevel];
-    setJokerMessage(`👥 AVIS DU PUBLIC :\n\n✔️ ${currentQ.answer} : 72%\n❌ Les autres réponses se partagent les 28% restants.`);
+    // NOUVEAU : Affichage esthétique du public
+    setActiveModal({
+      title: "👥 AVIS DU PUBLIC",
+      content: `✔️ ${currentQ.answer} : 72%\n\n❌ Les autres propositions se partagent les 28% restants.`,
+      type: 'joker'
+    });
   };
 
   const getButtonClass = (option: string) => {
@@ -216,7 +230,6 @@ export default function Home() {
     return "answer-btn";
   };
 
-  // --- ÉCRAN 1 : ACCUEIL & PAIEMENT ---
   if (gameState === 'welcome') {
     return (
       <div className="game-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', textAlign: 'center' }}>
@@ -231,18 +244,12 @@ export default function Home() {
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
-          <button
-            onClick={toggleMusic}
-            style={{ padding: '10px 20px', fontSize: '1rem', borderRadius: '10px', background: 'transparent', border: '1px solid #e5b80b', color: '#e5b80b', cursor: 'pointer' }}
-          >
+          <button onClick={toggleMusic} style={{ padding: '10px 20px', fontSize: '1rem', borderRadius: '10px', background: 'transparent', border: '1px solid #e5b80b', color: '#e5b80b', cursor: 'pointer' }}>
             {isPlayingMusic ? '⏸️ Couper la musique' : '🎵 Lancer la musique'}
           </button>
 
           {!walletAddress ? (
-            <button 
-              onClick={connectWallet}
-              style={{ padding: '15px 40px', fontSize: '1.5rem', borderRadius: '30px', background: '#e5b80b', border: '3px solid white', color: 'black', fontWeight: 'bold', cursor: 'pointer', marginTop: '20px' }}
-            >
+            <button onClick={connectWallet} style={{ padding: '15px 40px', fontSize: '1.5rem', borderRadius: '30px', background: '#e5b80b', border: '3px solid white', color: 'black', fontWeight: 'bold', cursor: 'pointer', marginTop: '20px' }}>
               🦊 Connecter le Wallet
             </button>
           ) : (
@@ -250,10 +257,7 @@ export default function Home() {
               <p style={{ color: '#00ff00', fontWeight: 'bold', marginBottom: '15px' }}>
                 🟢 Wallet : {walletAddress.substring(0,6)}...{walletAddress.substring(38)}
               </p>
-              <button 
-                onClick={payTicketAndStart}
-                style={{ padding: '15px 40px', fontSize: '1.5rem', borderRadius: '30px', background: '#00d4ff', border: '3px solid white', color: 'black', fontWeight: 'bold', cursor: 'pointer' }}
-              >
+              <button onClick={payTicketAndStart} style={{ padding: '15px 40px', fontSize: '1.5rem', borderRadius: '30px', background: '#00d4ff', border: '3px solid white', color: 'black', fontWeight: 'bold', cursor: 'pointer' }}>
                 ▶️ Payer (0.00001 ETH) & Jouer
               </button>
             </div>
@@ -263,10 +267,8 @@ export default function Home() {
     );
   }
 
-  // --- ÉCRAN 2 : LE PLATEAU DE JEU ---
   const currentQuestion = questionsWeb3[currentLevel];
 
-  // Si le joueur a répondu à toutes les questions dispos
   if (!currentQuestion) return (
     <div style={{ color: "white", padding: "50px", textAlign: "center", fontSize: "2rem" }}>
       🏆 FÉLICITATIONS ! VOUS ÊTES UN CRYPTO MILLIONNAIRE ! 🏆
@@ -277,6 +279,31 @@ export default function Home() {
 
   return (
     <div className="game-container">
+      {/* 🎬 NOUVEAU : C'est ici que s'affiche la fenêtre superposée avec fond flou */}
+      {activeModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-title">{activeModal.title}</h2>
+            <p className="modal-text">{activeModal.content}</p>
+            <button 
+              className="modal-btn"
+              onClick={() => {
+                if (activeModal.type === 'gameover') {
+                  setGameState('welcome');
+                  if (bgAudio.current) {
+                    bgAudio.current.pause();
+                    setIsPlayingMusic(false);
+                  }
+                }
+                setActiveModal(null);
+              }}
+            >
+              {activeModal.type === 'gameover' ? 'Retourner à l\'accueil' : 'C\'est noté !'}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="jokers">
         <button className="joker-btn" disabled={!jokers.fiftyFifty} onClick={useFiftyFifty}>50:50</button>
         <button className="joker-btn" disabled={!jokers.phone} onClick={usePhone}>☎️</button>
@@ -311,15 +338,6 @@ export default function Home() {
             );
           })}
         </div>
-
-        {jokerMessage && (
-          <div className="joker-result-box">
-            <p>{jokerMessage}</p>
-            <button className="close-joker-btn" onClick={() => setJokerMessage(null)}>
-              OK
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="money-tree">
