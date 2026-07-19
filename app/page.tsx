@@ -17,8 +17,8 @@ const BASE_CHAIN_ID = "0x2105"; // 8453 en hex
 const TICKET_PRICE_ETH_HEX = "0x9184E72A000"; // 0.00001 ETH
 
 // --- CONFIGURATION ARC TESTNET ---
-const ARC_CHAIN_ID = "0xREMPLACER_PAR_HEX"; // ⚠️ À MODIFIER : Chain ID de Arc Testnet
-const USDC_CONTRACT_ARC = "0xREMPLACER_PAR_CONTRAT_USDC"; // ⚠️ À MODIFIER : Adresse du contrat USDC sur Arc
+const ARC_CHAIN_ID = "0x4CEF52"; // ⚠️ À MODIFIER : Chain ID de Arc Testnet
+const USDC_CONTRACT_ARC = "0x3600000000000000000000000000000000000000"; // ⚠️ À MODIFIER : Adresse du contrat USDC sur Arc
 // Prix en USDC (ex: 1 USDC = 1 000 000 (car 6 décimales) -> "0xF4240" en hex)
 const TICKET_PRICE_USDC_HEX = "0xF4240"; 
 
