@@ -151,52 +151,79 @@ body {
   cursor: not-allowed;
 }
 
-.joker-result-box {
-  background: linear-gradient(180deg, #000033 0%, #000099 100%);
-  border: 2px solid #e5b80b;
-  border-radius: 15px;
-  color: white;
-  width: 80%; 
-  margin-top: 25px; 
-  padding: 15px;
-  text-align: center;
-  box-shadow: 0 0 20px rgba(229, 184, 11, 0.4); 
-  animation: fade-in-up 0.4s ease-out; 
+/* ========================================= */
+/* 🎬 LE NOUVEL AFFICHAGE ESTHÉTIQUE (MODALE)*/
+/* ========================================= */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
   display: flex;
-  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 15px;
-  box-sizing: border-box;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease;
 }
 
-.joker-result-box p {
-  margin: 0;
-  font-size: 1.2rem;
+.modal-content {
+  background: linear-gradient(180deg, #000033 0%, #000099 100%);
+  border: 3px solid #e5b80b;
+  border-radius: 20px;
+  padding: 40px 30px;
+  width: 90%;
+  max-width: 600px;
+  text-align: center;
+  box-shadow: 0 0 40px rgba(229, 184, 11, 0.4);
+  animation: scaleUp 0.3s ease;
+}
+
+.modal-title {
+  color: #e5b80b;
+  font-size: 2.2rem;
+  margin-bottom: 25px;
+  text-transform: uppercase;
   font-weight: bold;
-  white-space: pre-wrap;
-  line-height: 1.4;
+  text-shadow: 2px 2px 5px #000;
 }
 
-.close-joker-btn {
+.modal-text {
+  color: white;
+  font-size: 1.4rem;
+  line-height: 1.6;
+  margin-bottom: 35px;
+  white-space: pre-wrap;
+}
+
+.modal-btn {
   background: #e5b80b;
   color: #000;
   border: none;
-  border-radius: 20px;
-  padding: 8px 30px;
-  font-size: 1.1rem;
+  border-radius: 30px;
+  padding: 15px 40px;
+  font-size: 1.2rem;
   font-weight: bold;
   cursor: pointer;
   transition: all 0.2s;
+  text-transform: uppercase;
 }
 
-.close-joker-btn:hover {
+.modal-btn:hover {
   background: #ffaa00;
   transform: scale(1.05);
 }
 
-@keyframes fade-in-up {
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
 }
 
 @media screen and (max-width: 900px) {
@@ -235,15 +262,11 @@ body {
     padding: 10px;
     padding-left: 15px;
     min-height: 60px; 
-    white-space: normal;
-    line-height: 1.2;
-    box-sizing: border-box;
   }
   .gain-level {
     padding: 0px 5px;
     white-space: nowrap;
     gap: 5px;
-    line-height: 1; 
   }
   .jokers {
     top: 10px;
@@ -255,21 +278,14 @@ body {
     height: 50px;
     font-size: 1rem; 
     padding: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
   }
-  .joker-result-box {
-    width: 90%;
-    margin-right: 5px;
-    margin-top: 15px;
-    padding: 10px;
+  .modal-content {
+    padding: 25px 20px;
   }
-  .joker-result-box p {
-    font-size: 0.9rem;
+  .modal-title {
+    font-size: 1.6rem;
   }
-  .close-joker-btn {
-    padding: 5px 20px;
-    font-size: 0.9rem;
+  .modal-text {
+    font-size: 1.1rem;
   }
 }
