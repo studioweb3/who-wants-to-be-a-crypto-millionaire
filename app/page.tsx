@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { questionsWeb3 } from './questionsWeb3';
+import { questionsBase, questionsArc } from './questionsWeb3';
 
 declare global {
   interface Window {
@@ -9,10 +9,18 @@ declare global {
   }
 }
 
-// ⚠️ Ton adresse de réception
+// ⚠️ ADRESSES ET CONFIGURATIONS À VÉRIFIER
 const TREASURY_ADDRESS = "0x18799902c24dEe7F499205f9e647C69e97EB193B"; 
-// Prix du ticket : 0.00001 ETH
-const TICKET_PRICE_HEX = "0x9184E72A000"; 
+
+// --- CONFIGURATION BASE ---
+const BASE_CHAIN_ID = "0x2105"; // 8453 en hex
+const TICKET_PRICE_ETH_HEX = "0x9184E72A000"; // 0.00001 ETH
+
+// --- CONFIGURATION ARC TESTNET ---
+const ARC_CHAIN_ID = "0xREMPLACER_PAR_HEX"; // ⚠️ À MODIFIER : Chain ID de Arc Testnet
+const USDC_CONTRACT_ARC = "0xREMPLACER_PAR_CONTRAT_USDC"; // ⚠️ À MODIFIER : Adresse du contrat USDC sur Arc
+// Prix en USDC (ex: 1 USDC = 1 000 000 (car 6 décimales) -> "0xF4240" en hex)
+const TICKET_PRICE_USDC_HEX = "0xF4240"; 
 
 const MONEY_TREE = [
   "200 USDT", "300 USDT", "500 USDT", "1 000 USDT",
@@ -20,17 +28,25 @@ const MONEY_TREE = [
   "150 000 USDT", "300 000 USDT", "1 000 000 USDT"
 ];
 
-// NOUVEAU : Le type pour notre affichage esthétique
 type ModalState = {
   title: string;
   content: string;
   type: 'joker' | 'gameover';
 } | null;
 
+// Fonction maison pour encoder un transfert ERC-20 (USDC)
+const encodeERC20Transfer = (recipient: string, amountHex: string) => {
+  const cleanRecipient = recipient.toLowerCase().replace('0x', '').padStart(64, '0');
+  const cleanAmount = amountHex.replace('0x', '').padStart(64, '0');
+  return `0xa9059cbb${cleanRecipient}${cleanAmount}`; // 0xa9059cbb = transfer(address,uint256)
+};
+
 export default function Home() {
   const [gameState, setGameState] = useState<'welcome' | 'playing'>('welcome');
-  const [networkTheme, setNetworkTheme] = useState('Web3');
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  
+  // Nouveau : Savoir quelles questions afficher
+  const [activeQuestions, setActiveQuestions] = useState(questionsBase);
 
   const [currentLevel, setCurrentLevel] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -38,8 +54,6 @@ export default function Home() {
   const [correctAnswer, setCorrectAnswer] = useState<string | null>(null);
   const [hiddenOptions, setHiddenOptions] = useState<string[]>([]);
   const [jokers, setJokers] = useState({ fiftyFifty: true, phone: true, audience: true });
-  
-  // NOUVEAU : Remplace jokerMessage et alert()
   const [activeModal, setActiveModal] = useState<ModalState>(null);
   
   const [isPlayingMusic, setIsPlayingMusic] = useState(false);
@@ -50,9 +64,7 @@ export default function Home() {
     bgAudio.current.loop = true;
     bgAudio.current.volume = 0.4;
 
-    checkNetwork();
     if (typeof window !== 'undefined' && window.ethereum) {
-      window.ethereum.on('chainChanged', checkNetwork);
       window.ethereum.on('accountsChanged', handleAccountsChanged);
     }
   }, []);
@@ -62,25 +74,11 @@ export default function Home() {
     else setWalletAddress(null);
   };
 
-  const checkNetwork = async () => {
-    if (typeof window !== 'undefined' && window.ethereum) {
-      try {
-        const chainId = await window.ethereum.request({ method: 'eth_chainId' });
-        if (chainId === '0x2105') setNetworkTheme('Base');
-        else if (chainId === '0xREMPLACER_PAR_HEX') setNetworkTheme('Arc');
-        else setNetworkTheme('Web3');
-      } catch (error) {
-        console.error("Erreur réseau", error);
-      }
-    }
-  };
-
   const connectWallet = async () => {
     if (typeof window !== 'undefined' && window.ethereum) {
       try {
         const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
         setWalletAddress(accounts[0]);
-        checkNetwork();
       } catch (error) {
         console.error("Erreur de connexion", error);
       }
@@ -118,27 +116,79 @@ export default function Home() {
     }
   };
 
-  const payTicketAndStart = async () => {
+  // --- LOGIQUE DE CHANGEMENT DE RÉSEAU ---
+  const switchNetwork = async (chainIdHex: string) => {
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: chainIdHex }],
+      });
+      return true;
+    } catch (error: any) {
+      // Si le réseau n'est pas ajouté dans le wallet du joueur
+      if (error.code === 4902) {
+        alert("Ce réseau n'est pas configuré dans votre portefeuille.");
+      } else {
+        console.error("Erreur de changement de réseau", error);
+      }
+      return false;
+    }
+  };
+
+  // --- JOUER SUR BASE ---
+  const playOnBase = async () => {
     if (!walletAddress) return;
+    const isSwitched = await switchNetwork(BASE_CHAIN_ID);
+    if (!isSwitched) return;
+
     try {
       await window.ethereum.request({
         method: 'eth_sendTransaction',
-        params: [{ from: walletAddress, to: TREASURY_ADDRESS, value: TICKET_PRICE_HEX }],
+        params: [{ from: walletAddress, to: TREASURY_ADDRESS, value: TICKET_PRICE_ETH_HEX }],
       });
       
-      setCurrentLevel(0);
-      setJokers({ fiftyFifty: true, phone: true, audience: true });
-      setHiddenOptions([]);
-      resetTurn();
-      setGameState('playing');
-      
-      if (bgAudio.current) {
-        bgAudio.current.pause();
-        bgAudio.current.currentTime = 0;
-        setIsPlayingMusic(false);
-      }
+      setActiveQuestions(questionsBase); // Charge les questions Base
+      launchGame();
     } catch (error) {
       console.error("Paiement refusé :", error);
+    }
+  };
+
+  // --- JOUER SUR ARC (USDC) ---
+  const playOnArc = async () => {
+    if (!walletAddress) return;
+    const isSwitched = await switchNetwork(ARC_CHAIN_ID);
+    if (!isSwitched) return;
+
+    try {
+      await window.ethereum.request({
+        method: 'eth_sendTransaction',
+        params: [{ 
+          from: walletAddress, 
+          to: USDC_CONTRACT_ARC, // On contacte le contrat USDC
+          value: '0x0', // On n'envoie pas de jeton natif
+          data: encodeERC20Transfer(TREASURY_ADDRESS, TICKET_PRICE_USDC_HEX) // On envoie l'instruction de transfert
+        }],
+      });
+      
+      setActiveQuestions(questionsArc); // Charge les questions Arc
+      launchGame();
+    } catch (error) {
+      console.error("Paiement refusé :", error);
+    }
+  };
+
+  const launchGame = () => {
+    setCurrentLevel(0);
+    setJokers({ fiftyFifty: true, phone: true, audience: true });
+    setHiddenOptions([]);
+    resetTurn();
+    setGameState('playing');
+    
+    if (bgAudio.current) {
+      bgAudio.current.pause();
+      bgAudio.current.currentTime = 0;
+      setIsPlayingMusic(false);
     }
   };
 
@@ -149,7 +199,7 @@ export default function Home() {
     playSound('select');
 
     setTimeout(() => {
-      const currentQ = questionsWeb3[currentLevel];
+      const currentQ = activeQuestions[currentLevel];
       setCorrectAnswer(currentQ.answer);
       
       if (option === currentQ.answer) {
@@ -161,7 +211,6 @@ export default function Home() {
       } else {
         playSound('lose');
         setTimeout(() => {
-          // NOUVEAU : Fini l'alert() moche du navigateur, on utilise la belle modale !
           setActiveModal({
             title: "🚨 MAUVAISE RÉPONSE",
             content: `C'est terminé !\n\nVous repartez avec le palier de sécurité de :\n\n${getSafeHavenValue()}`,
@@ -190,7 +239,7 @@ export default function Home() {
     if (!jokers.fiftyFifty || isChecking) return;
     setJokers({ ...jokers, fiftyFifty: false });
     playSound('joker');
-    const currentQ = questionsWeb3[currentLevel];
+    const currentQ = activeQuestions[currentLevel];
     const wrongOptions = currentQ.options.filter(opt => opt !== currentQ.answer);
     const shuffledWrong = wrongOptions.sort(() => 0.5 - Math.random());
     setHiddenOptions([shuffledWrong[0], shuffledWrong[1]]);
@@ -200,8 +249,7 @@ export default function Home() {
     if (!jokers.phone || isChecking) return;
     setJokers({ ...jokers, phone: false });
     playSound('joker');
-    const currentQ = questionsWeb3[currentLevel];
-    // NOUVEAU : Affichage esthétique de l'appel
+    const currentQ = activeQuestions[currentLevel];
     setActiveModal({
       title: "📞 APPEL À UN AMI",
       content: `"Salut ! Écoute, je ne suis pas sûr à 100%, mais je dirais bien que la bonne réponse est :\n\n ${currentQ.answer}"`,
@@ -213,8 +261,7 @@ export default function Home() {
     if (!jokers.audience || isChecking) return;
     setJokers({ ...jokers, audience: false });
     playSound('joker');
-    const currentQ = questionsWeb3[currentLevel];
-    // NOUVEAU : Affichage esthétique du public
+    const currentQ = activeQuestions[currentLevel];
     setActiveModal({
       title: "👥 AVIS DU PUBLIC",
       content: `✔️ ${currentQ.answer} : 72%\n\n❌ Les autres propositions se partagent les 28% restants.`,
@@ -236,12 +283,9 @@ export default function Home() {
         <h1 style={{ color: '#e5b80b', fontSize: '3.5rem', textShadow: '2px 2px 5px #000', margin: '0 0 10px 0' }}>
           WHO WANTS TO BE A
         </h1>
-        <h2 style={{ color: 'white', fontSize: '2.5rem', marginBottom: '10px', letterSpacing: '2px' }}>
+        <h2 style={{ color: 'white', fontSize: '2.5rem', marginBottom: '40px', letterSpacing: '2px' }}>
           CRYPTO MILLIONAIRE?
         </h2>
-        <h3 style={{ color: '#00d4ff', fontSize: '1.2rem', marginBottom: '40px', letterSpacing: '3px', fontWeight: 'bold' }}>
-          {networkTheme.toUpperCase()} EDITION
-        </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', alignItems: 'center' }}>
           <button onClick={toggleMusic} style={{ padding: '10px 20px', fontSize: '1rem', borderRadius: '10px', background: 'transparent', border: '1px solid #e5b80b', color: '#e5b80b', cursor: 'pointer' }}>
@@ -254,12 +298,22 @@ export default function Home() {
             </button>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '20px' }}>
-              <p style={{ color: '#00ff00', fontWeight: 'bold', marginBottom: '15px' }}>
+              <p style={{ color: '#00ff00', fontWeight: 'bold', marginBottom: '25px' }}>
                 🟢 Wallet : {walletAddress.substring(0,6)}...{walletAddress.substring(38)}
               </p>
-              <button onClick={payTicketAndStart} style={{ padding: '15px 40px', fontSize: '1.5rem', borderRadius: '30px', background: '#00d4ff', border: '3px solid white', color: 'black', fontWeight: 'bold', cursor: 'pointer' }}>
-                ▶️ Payer (0.00001 ETH) & Jouer
-              </button>
+              
+              <h3 style={{ color: '#94a3b8', fontSize: '1.2rem', marginBottom: '15px' }}>Choisissez votre réseau d'entrée :</h3>
+              
+              {/* NOUVEAU : Boutons de sélection du réseau */}
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                 <button onClick={playOnBase} style={{ padding: '15px 30px', fontSize: '1.2rem', borderRadius: '30px', background: '#0052ff', border: '2px solid white', color: 'white', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s' }}>
+                    🔵 Base (0.00001 ETH)
+                 </button>
+                 
+                 <button onClick={playOnArc} style={{ padding: '15px 30px', fontSize: '1.2rem', borderRadius: '30px', background: '#8b5cf6', border: '2px solid white', color: 'white', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s' }}>
+                    🟣 Arc Testnet (USDC)
+                 </button>
+              </div>
             </div>
           )}
         </div>
@@ -267,7 +321,7 @@ export default function Home() {
     );
   }
 
-  const currentQuestion = questionsWeb3[currentLevel];
+  const currentQuestion = activeQuestions[currentLevel];
 
   if (!currentQuestion) return (
     <div style={{ color: "white", padding: "50px", textAlign: "center", fontSize: "2rem" }}>
@@ -279,7 +333,6 @@ export default function Home() {
 
   return (
     <div className="game-container">
-      {/* 🎬 NOUVEAU : C'est ici que s'affiche la fenêtre superposée avec fond flou */}
       {activeModal && (
         <div className="modal-overlay">
           <div className="modal-content">
