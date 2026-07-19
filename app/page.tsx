@@ -17,8 +17,8 @@ const BASE_CHAIN_ID = "0x2105"; // 8453 en hex
 const TICKET_PRICE_ETH_HEX = "0x9184E72A000"; // 0.00001 ETH
 
 // --- CONFIGURATION ARC TESTNET ---
-const ARC_CHAIN_ID = "0x4CEF52"; // ⚠️ À MODIFIER : Chain ID de Arc Testnet
-const USDC_CONTRACT_ARC = "0x3600000000000000000000000000000000000000"; // ⚠️ À MODIFIER : Adresse du contrat USDC sur Arc
+const ARC_CHAIN_ID = "0x4CEF52"; // Chain ID de Arc Testnet
+const USDC_CONTRACT_ARC = "0x3600000000000000000000000000000000000000"; // Adresse du contrat USDC sur Arc
 // Prix en USDC (ex: 1 USDC = 1 000 000 (car 6 décimales) -> "0xF4240" en hex)
 const TICKET_PRICE_USDC_HEX = "0xF4240"; 
 
@@ -45,7 +45,7 @@ export default function Home() {
   const [gameState, setGameState] = useState<'welcome' | 'playing'>('welcome');
   const [walletAddress, setWalletAddress] = useState<string | null>(null);
   
-  // Nouveau : Savoir quelles questions afficher
+  // Savoir quelles questions afficher
   const [activeQuestions, setActiveQuestions] = useState(questionsBase);
 
   const [currentLevel, setCurrentLevel] = useState(0);
@@ -119,17 +119,51 @@ export default function Home() {
   // --- LOGIQUE DE CHANGEMENT DE RÉSEAU ---
   const switchNetwork = async (chainIdHex: string) => {
     try {
+      // 1. On essaie de passer sur le réseau demandé
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: chainIdHex }],
       });
       return true;
     } catch (error: any) {
-      // Si le réseau n'est pas ajouté dans le wallet du joueur
+      // 2. Le code 4902 signifie "Ce réseau n'est pas dans le wallet"
       if (error.code === 4902) {
-        alert("Ce réseau n'est pas configuré dans votre portefeuille.");
+        try {
+          // On ajoute Arc Testnet automatiquement
+          if (chainIdHex === ARC_CHAIN_ID) { 
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: ARC_CHAIN_ID,
+                chainName: 'Arc Testnet',
+                nativeCurrency: { name: 'USDC', symbol: 'USDC', decimals: 18 },
+                rpcUrls: ['https://rpc.testnet.arc.io'],
+                blockExplorerUrls: ['https://testnet.arcscan.app']
+              }],
+            });
+            return true;
+          }
+          
+          // On ajoute Base automatiquement
+          if (chainIdHex === BASE_CHAIN_ID) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: BASE_CHAIN_ID,
+                chainName: 'Base',
+                nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                rpcUrls: ['https://mainnet.base.org'],
+                blockExplorerUrls: ['https://basescan.org']
+              }],
+            });
+            return true;
+          }
+        } catch (addError) {
+          console.error("L'utilisateur a refusé d'ajouter le réseau", addError);
+          return false;
+        }
       } else {
-        console.error("Erreur de changement de réseau", error);
+        console.error("Erreur lors du changement de réseau", error);
       }
       return false;
     }
@@ -304,7 +338,6 @@ export default function Home() {
               
               <h3 style={{ color: '#94a3b8', fontSize: '1.2rem', marginBottom: '15px' }}>Choisissez votre réseau d'entrée :</h3>
               
-              {/* NOUVEAU : Boutons de sélection du réseau */}
               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', justifyContent: 'center' }}>
                  <button onClick={playOnBase} style={{ padding: '15px 30px', fontSize: '1.2rem', borderRadius: '30px', background: '#0052ff', border: '2px solid white', color: 'white', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s' }}>
                     🔵 Base (0.00001 ETH)
